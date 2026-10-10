@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "743159111932",
+    "project_id": "taller-mis-tareas",
+    "storage_bucket": "taller-mis-tareas.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:743159111932:android:1784c4b6e438f5180f3779",
+        "android_client_info": {
+          "package_name": "com.example.mistareas"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDH1FUcMUn_r7bCUDzHAy_dTMdc_Uzwdvw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

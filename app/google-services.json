@@ -12,7 +12,20 @@
           "package_name": "com.example.mistareas"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "743159111932-u8ca1fq8d8ei3898pivueil6vcmu2u5m.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.mistareas",
+            "certificate_hash": "509032e01c006606cfa67b9500bfedac16fe3962"
+          }
+        },
+        {
+          "client_id": "743159111932-55v19mpna3tfe2ajds4e6f91qouh96oh.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDH1FUcMUn_r7bCUDzHAy_dTMdc_Uzwdvw"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "743159111932-55v19mpna3tfe2ajds4e6f91qouh96oh.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

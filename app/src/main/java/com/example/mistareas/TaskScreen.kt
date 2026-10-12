@@ -36,86 +36,131 @@ fun TaskScreen(
     onComplete: (TaskItem, Boolean) -> Unit,
     onDelete: (TaskItem) -> Unit,
     onRetry: () -> Unit,
+    onGuestSignIn: () -> Unit,
+    onGoogleSignIn: () -> Unit,
+    onSignOut: () -> Unit,
+    onDismissError: () -> Unit,
 ) {
-    val enabled = estado.uid != null && estado.listening &&
-            !estado.connecting && !estado.writing
-
     LazyColumn(
         modifier = Modifier.fillMaxSize().safeDrawingPadding().imePadding().padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         item {
             Text("Mis tareas", style = MaterialTheme.typography.headlineLarge)
-            Text("Kotlin + Compose + Firebase", style = MaterialTheme.typography.bodyMedium)
+            Text("De invitado a usuario con Google", style = MaterialTheme.typography.bodyMedium)
         }
         item {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text("Mi sesión anónima", style = MaterialTheme.typography.titleSmall)
-                    SelectionContainer {
-                        Text(estado.uid ?: "Conectando…", style = MaterialTheme.typography.bodySmall)
+                    Text(
+                        when {
+                            estado.uid == null -> "Bienvenido"
+                            estado.isAnonymous -> "Sesión de invitado"
+                            else -> "Sesión con Google"
+                        },
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    if (estado.uid != null) {
+                        estado.displayName?.let { Text(it) }
+                        estado.email?.let { Text(it) }
+                        SelectionContainer {
+                            Text("UID: " + estado.uid, style = MaterialTheme.typography.bodySmall)
+                        }
                     }
-                    val mensaje = when {
-                        estado.connecting -> "Iniciando sesión y escuchando tareas…"
-                        !estado.listening -> "Sin escucha activa. Pulsa Reintentar."
-                        estado.writing || estado.pendingChange -> "Cambio pendiente de confirmación del servidor"
+                    if (estado.uid == null || estado.isAnonymous) {
+                        Text(
+                            if (estado.isAnonymous) "Vincula Google para conservar tus tareas y recuperarlas en otro dispositivo."
+                            else "Elige cómo entrar para consultar tus tareas.",
+                        )
+                        Button(
+                            onClick = onGoogleSignIn,
+                            enabled = !estado.busy,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) { Text("Continuar con Google") }
+                        if (estado.uid == null) {
+                            TextButton(
+                                onClick = onGuestSignIn,
+                                enabled = !estado.busy,
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("Continuar como invitado") }
+                        }
+                    } else {
+                        TextButton(onClick = onSignOut, enabled = !estado.busy) {
+                            Text("Cerrar sesión")
+                        }
+                    }
+                    val message = when {
+                        estado.authenticating -> "Procesando sesión…"
+                        estado.uid == null -> null
+                        estado.connecting -> "Escuchando tareas…"
+                        estado.writing || estado.pendingChange ->
+                            "Cambio pendiente del servidor. Si estás sin conexión, reconecta para continuar."
+                        !estado.listening -> "Sin escucha activa. Pulsa Reintentar conexión."
                         estado.fromCache -> "Datos locales; esperando al servidor"
                         else -> "Lista actualizada desde Firestore"
                     }
-                    Text(mensaje, style = MaterialTheme.typography.bodySmall)
+                    message?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
                 }
             }
         }
-        if (estado.connecting || estado.writing) {
+        if (estado.authenticating || estado.connecting || estado.writing) {
             item { LinearProgressIndicator(Modifier.fillMaxWidth()) }
         }
         estado.error?.let { error ->
             item {
                 Text(error, color = MaterialTheme.colorScheme.error)
-                TextButton(onClick = onRetry, enabled = !estado.connecting && !estado.writing) {
+                TextButton(onClick = onDismissError) { Text("Entendido") }
+            }
+        }
+        // Reintentar queda disponible también si el usuario cerró el mensaje de error.
+        if (estado.uid != null && !estado.listening) {
+            item {
+                TextButton(onClick = onRetry, enabled = !estado.busy) {
                     Text("Reintentar conexión")
                 }
             }
         }
-        item {
-            OutlinedTextField(
-                value = estado.newTitle,
-                onValueChange = onTitle,
-                label = { Text("¿Qué necesitas hacer?") },
-                supportingText = { Text("${estado.newTitle.length}/80 caracteres") },
-                singleLine = true,
-                enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            Button(
-                onClick = onAdd,
-                enabled = enabled && estado.newTitle.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text("Agregar tarea") }
-        }
-        item {
-            val pendientes = estado.tasks.count { !it.complete }
-            Text("$pendientes pendientes · ${estado.tasks.size} en total")
-        }
-        if (!estado.connecting && estado.tasks.isEmpty()) {
-            item { Text("Todavía no hay tareas en esta lista. Agrega la primera.") }
-        }
-        items(estado.tasks, key = { it.id }) { tarea ->
-            Card(Modifier.fillMaxWidth()) {
-                Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Checkbox(
-                        checked = tarea.complete,
-                        onCheckedChange = { onComplete(tarea, it) },
-                        enabled = enabled,
-                        modifier = Modifier.semantics { contentDescription = "Completar ${tarea.title}" },
-                    )
-                    Text(
-                        text = tarea.title,
-                        modifier = Modifier.weight(1f),
-                        textDecoration = if (tarea.complete) TextDecoration.LineThrough else TextDecoration.None,
-                    )
-                    TextButton(onClick = { onDelete(tarea) }, enabled = enabled) {
-                        Text("Eliminar")
+        if (estado.uid != null) {
+            item {
+                OutlinedTextField(
+                    value = estado.newTitle,
+                    onValueChange = onTitle,
+                    label = { Text("¿Qué necesitas hacer?") },
+                    supportingText = { Text(estado.newTitle.length.toString() + "/80 caracteres") },
+                    singleLine = true,
+                    enabled = estado.canEdit,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Button(
+                    onClick = onAdd,
+                    enabled = estado.canEdit && estado.newTitle.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Agregar tarea") }
+            }
+            item {
+                val pending = estado.tasks.count { !it.complete }
+                Text("$pending pendientes · " + estado.tasks.size + " en total")
+            }
+            if (!estado.connecting && estado.listening && estado.tasks.isEmpty()) {
+                item { Text("Todavía no hay tareas en esta lista. Agrega la primera.") }
+            }
+            items(estado.tasks, key = { it.id }) { task ->
+                Card(Modifier.fillMaxWidth()) {
+                    Row(Modifier.padding(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(
+                            checked = task.complete,
+                            onCheckedChange = { onComplete(task, it) },
+                            enabled = estado.canEdit,
+                            modifier = Modifier.semantics { contentDescription = "Completar " + task.title },
+                        )
+                        Text(
+                            text = task.title,
+                            modifier = Modifier.weight(1f),
+                            textDecoration = if (task.complete) TextDecoration.LineThrough else TextDecoration.None,
+                        )
+                        TextButton(onClick = { onDelete(task) }, enabled = estado.canEdit) {
+                            Text("Eliminar")
+                        }
                     }
                 }
             }
@@ -131,7 +176,7 @@ private fun VistaPreviaTareas() {
         TaskScreen(
             estado = TaskStatus(
                 uid = "usuario-de-ejemplo",
-                connecting = false,
+                isAnonymous = true,
                 listening = true,
                 fromCache = false,
                 tasks = listOf(
@@ -140,7 +185,8 @@ private fun VistaPreviaTareas() {
                 ),
             ),
             onTitle = {}, onAdd = {}, onComplete = { _, _ -> },
-            onDelete = {}, onRetry = {},
+            onDelete = {}, onRetry = {}, onGuestSignIn = {}, onGoogleSignIn = {},
+            onSignOut = {}, onDismissError = {},
         )
     }
 }
